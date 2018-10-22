@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>Trawl</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="d-flex flex-md-row align-items-center px-4 md-0 bg-light border-bottom box-shadow">
+        <img src="/logo.png"/>
+        <nav class="nav-bar">
+            <a class="no pl-5 p-2 mt-3 text-dark" href="/posts">Refresh</a>
+            <a class="no p-2 text-dark" href="/posts">New post</a>
+        </nav>
+        <div class="pl-5 text-dark">You are <b>@"@"@|userid|</b></div>
+        <a class="nav-link mb-md-0 ml-md-auto" href="/logout" title="Forget me as @"@"@|userid| and get me new Id">Forget me!</a>
+    </div>
+    <div class="mt-0 p-0 container-fluid" style="height: 92%; overflow: hidden;">
+        <div class="row align-items-center">
+            <div class="col-sm px-5" id="error"></div>
+        </div>
+        <div class="row" style="height: 100%;overflow-x: hidden;">
+            <div class="col-sm" style="font-size: 0.88rem; height: 100%; overflow-y: scroll; overflow-x:scroll;">
+                <ul class="list-group">
+                    @(posts-render-tree)
+                </ul>
+            </div>
+            <div id="post" class="col-sm pt-3" style="font-size: 0.88rem; height: 100%;overflow-y:scroll;overflow-x:hidden;">
+                @(if (not p) (posts-render-new) (posts-render-post p))
+            </div>
+        </div>
+    </div>
+    <footer class="pt-2 pl-1 pb-0 border-top">
+        <div class="row">
+            <div class="col-12 col-md">
+                <small class="d-block text-muted">&#169; 2018</small>
+            </div>
+        </div>
+    </footer>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js" integrity="sha384-smHYKdLADwkXOn1EmN1qk/HfnUcbVRZyYmZ4qpPea6sjB/pTJ0euyQp0Mk8ck+5T" crossorigin="anonymous"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+<li class="list-group-item py-1 nb">
+<a class="link" href="/posts/@(post-id p)">
+    <b>@(post-render-subject p)</b>
+    <span class="text-dark"><b>&nbsp;&#64;@(post-from p)</b></span>
+    <span class="text-muted">&nbsp;@(post-render-posted p)</span>
+</a>
+@in[c (post-comments p)]{<ul class="px-2">@(posts-render-tree c)</ul>}
+</li>

@@ -1,0 +1,10 @@
+html, body {height: 100%; overflow: hidden ;}
+.link { color: blue !important; text-decoration: none !important; }
+.link:link { color: blue !important; }
+.link:visited { color:black !important; }
+.link:hover { color: #007bff !important; }
+.link:active { color:green !important; }
+p, li, b, a, .no { outline:none; white-space:nowrap; }
+ul {overflow-x: visible; }
+.nb { border:none; }
+.list {font-size: 0.90rem;}

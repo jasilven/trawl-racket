@@ -1,0 +1,20 @@
+<div class="shadow p-3 mb-4 bg-white rounded">
+    <span class="text-dark">
+        &#64;<b>@(post-from p)</b>&nbsp;@(post-render-posted p)
+    </span>
+</pr>
+<h4>@(post-render-subject p)</h4>
+<pre>
+@(post-body p)
+</pre>
+</div>
+<form action="/reply" method="post" autocomplete="off" validate="" id="reply">
+	  <div class="form-group mt-3">
+		    <label for="Body" class="text-muted"> &#9998; Comment</Label>
+		    <textarea class="form-control" name="Body" placeholder="" rows="6" form="reply" maxlength="@|*post-max-len*|"></textarea>
+	  </div>
+	  <div class="form-group mt-3">
+	      <input type="hidden" name="ReplyTo" value="@(post-id p)">
+    </div>
+		<button type="submit" class="btn btn-sm btn-outline-primary">Send</button>
+</form>
