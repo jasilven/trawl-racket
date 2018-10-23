@@ -9,7 +9,9 @@ Messages are never persisted anywhere! After messages are posted they will stay 
 in the message board until new incoming messages pushes them away or when the server terminates.
 
 All posts are posted anonymously with randomly generated userid that is valid until user ends
-the session or decides to abandon the userid. 
+the session or decides to abandon the userid.
+
+Uses only racket (v7.0) standard library!
 
 ## build
 ```
