@@ -1,24 +1,24 @@
 #lang racket
 
 (require web-server/templates
-         "posts.rkt")
+         (prefix-in p: "posts.rkt"))
 
-(provide posts-render-tree
-         posts-render-post
-         posts-render-new
-         posts-render-main
-         post-render-posted
-         post-render-subject)
+(provide render-tree
+         render-post
+         render-new
+         render-main-page
+         render-posted
+         render-subject)
 
 ;; extract subject from post
-(define (post-render-subject p)
-  (define body (post-body p))
+(define (render-subject p)
+  (define body (p:post-body p))
   (substring body 0 (min 50 (string-length body))))
 
 ;; convert posted seconds to string
-(define (post-render-posted p)
+(define (render-posted p)
   (define current-secs (current-seconds))
-  (define posted-secs (post-posted p))
+  (define posted-secs (p:post-posted p))
   (define duration (- current-secs posted-secs))
   (cond
     [(< duration 60) (string-append (number->string duration) "s ago")]
@@ -27,29 +27,29 @@
     [else  (string-append (number->string (truncate (/ duration 86400))) " days ago")]))
 
 ;; render main page
-(define (posts-render-main userid [post-id ""])
+(define (render-main-page userid [post-id ""])
   (let ([p (if (eq? post-id "" )
                #f
-               (post-id->post post-id))])
+               (p:id->post post-id))])
     (include-template "templates/index.html")))
 
 ;; render single post with reply form
-(define (posts-render-post p)
+(define (render-post p)
   (include-template "templates/post.html"))
 
 ;; render post form
-(define (posts-render-new)
+(define (render-new)
   (include-template "templates/new.html"))
 
 ;; render posts and comments as html tree view for given root
 ;; root can be id, post or list of ids. Default is all top-level posts
-(define (posts-render-tree [root (posts-all-ids)])
+(define (render-tree [root (p:all-post-ids)])
   (define op (open-output-string))
   (define ids (cond
                 [(list? root) root]
-                [(post? root) (list (post-id root))]
+                [(p:post? root) (list (p:post-id root))]
                 [else (list root)]))
   (for ([id (in-list ids)])
-    (define p (post-id->post id))
+    (define p (p:id->post id))
     (fprintf op (include-template "templates/tree.html")))
   (get-output-string op))

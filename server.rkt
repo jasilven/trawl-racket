@@ -5,16 +5,16 @@
          web-server/http/id-cookie
          web-server/servlet-env
          xml
-         "posts.rkt"
-         "render.rkt")
+         (prefix-in p: "posts.rkt")
+         (prefix-in r: "render.rkt"))
 
 ;; secret salt for id-cookie
-(define cookie-salt (string->bytes/utf-8 (uid 8)))
+(define cookie-salt (string->bytes/utf-8 (p:uid 8)))
 
 ;; main response writer
 (define (main req [post-id ""])
   (define user (user-from-cookie req))
-  (define userid (if (eq? "anonymous" user) (uid 6) user))
+  (define userid (if (eq? "anonymous" user) (p:uid 6) user))
   (response/full
    200 #"OK"
    (current-seconds) TEXT/HTML-MIME-TYPE
@@ -23,7 +23,7 @@
                                          userid
                                          #:path "/")))
    (list (string->bytes/utf-8
-          (posts-render-main userid post-id)))))
+          (r:render-main-page userid post-id)))))
 
 ;; extract form binding value from post form
 (define (binding-value req key)
@@ -39,15 +39,15 @@
 
 ;; handle reply
 (define (reply req)
-  (posts-new-post (user-from-cookie req)
-                  (xexpr->string (binding-value req #"Body"))
-                  (xexpr->string (binding-value req #"ReplyTo")))
+  (p:new-post (user-from-cookie req)
+              (xexpr->string (binding-value req #"Body"))
+              (xexpr->string (binding-value req #"ReplyTo")))
   (main req))
 
 ;; handle new post
 (define (new req)
-  (posts-new-post (user-from-cookie req)
-                  (xexpr->string (binding-value req #"Body")))
+  (p:new-post (user-from-cookie req)
+              (xexpr->string (binding-value req #"Body")))
   (main req))
 
 ;; logout and invalidate id-cookie
