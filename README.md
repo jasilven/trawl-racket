@@ -2,8 +2,7 @@
 Simple in-memory message board webapp written in racket.
 
 Messages are stored and served from simple fixed size in-memory "datastore" that
-uses fifo method for cleaning old messages out of the way. Datastore size and message size
-are configurable.
+uses fifo method for cleaning old messages out of the way. 
 
 Messages are never persisted anywhere! After messages are posted they will stay in memory and
 in the message board until new incoming messages pushes them away or when the server terminates.
