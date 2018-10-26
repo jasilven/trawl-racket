@@ -11,7 +11,7 @@ new incoming messages pushes them away or when the server terminates.
 All posts are posted anonymously with randomly generated userid that is valid until user ends
 the session or decides to abandon the userid.
 
-No external dependencies used, only racket standard library!
+No external server-side dependencies used, only racket standard library!
 
 ## build
 ```
