@@ -47,8 +47,9 @@
 (define (uid len)
   (define a (number->string (random 100000000)))
   (define b (number->string (current-milliseconds)))
-  (define str (md5 (string-append a b)))
-  (substring (bytes->string/utf-8 str) 0 len))
+  (substring (bytes->string/utf-8
+              (md5 (string-append a b)))
+             0 len))
 
 ;; unique id for new post
 (define (uniq-post-uid f v)
@@ -59,98 +60,72 @@
 
 ;; create and return post and remove oldest if dull db
 (define (new-post from body [parent-id #f])
-  (define abody (substring body 0 (min (string-length body)
-                                       *post-max-len*)))
+  (define abody (substring body
+                           0 (min (string-length body) *post-max-len*)))
   (define id (uniq-post-uid uid 8))
   (define apost (post id (current-seconds) from abody '()))
-  (define add-comment
-    (λ (p) (struct-copy post p
-                        [comments (append (post-comments p) (list id))])))
+  (define (add-comment a)
+    (struct-copy post a [comments (append (post-comments a) (list id))]))
   (call-with-semaphore
    (db-semaphore *db*)
-   (λ ()
-     (hash-set! (db-posts *db*) id apost)
-     (if (false? parent-id) ;top level post
-         (set-db-ids! *db* (append (list id) (db-ids *db*)))
-         (hash-update! (db-posts *db*) parent-id add-comment))
-     (when (> (hash-count (db-posts *db*))
-              *db-max-size*)
-       (set-db-ids! *db* (drop-right (db-ids *db*) 1))
-       (for ([id (in-list (post-thread-ids (last (db-ids *db*))))])
-         (hash-remove! (db-posts *db*) id)))))
+   (thunk
+    (hash-set! (db-posts *db*) id apost)
+    (if (false? parent-id) ;top level post
+        (set-db-ids! *db* (append (list id) (db-ids *db*)))
+        (hash-update! (db-posts *db*) parent-id add-comment))
+    (when (> (hash-count (db-posts *db*))
+             *db-max-size*)
+      (set-db-ids! *db* (drop-right (db-ids *db*) 1))
+      (for ([id (in-list (post-thread-ids (last (db-ids *db*))))])
+        (hash-remove! (db-posts *db*) id)))))
   apost)
 
 ;; tests
 (module+ test
   (require rackunit
            rackunit/text-ui)
-  (define (generate-many-posts)
-    (for/list ([i (in-range (* 10 *db-max-size*))])
-      (define p (new-post (string-append "test-"
-                                         (number->string i))
-                          (string-append "test body for post: "
-                                         (number->string i))))
-      (post-id (id->post (post-id p)))))
 
   (run-tests
    (test-suite
     "all tests"
     (test-suite "stress test"
-                #:before (λ () (db-reset))
-                #:after (λ () (db-reset))
-                (check-not-exn (λ () (generate-many-posts))))
+                #:before db-reset
+                #:after db-reset
+                (check-not-exn
+                 (thunk
+                  (for ([i (in-range (* 10 *db-max-size*))])
+                    (define a (new-post (format "from-~a" (number->string i))
+                                        (format "body-~a" (number->string i))))
+                    (post-id (id->post (post-id a))))))
+                (check-true (<= (length (all-post-ids))
+                                *db-max-size*)))
     (test-suite "basic tests"
-                #:before (λ () (db-reset))
-                #:after (λ () (db-reset))
-                (test-case "testing new-post and id->post"
-                  (check-not-exn
-                   (λ ()
-                     (define p (new-post "from test" "body test"))
-                     (define p2 (id->post (post-id p)))
-                     (when (not (string=? (post-body p)
-                                          "body test"
-                                          (post-body p2)))
-                       (raise "error: not matching")))))
-                (test-false "non existing post" (id->post "not_valid_id"))
-                (test-exn "comment to non-existing post"
-                          exn:fail? (λ () (new-post "from test" "body test" "not_valid_id"))))
-    (test-suite "more basic test"
-                #:before (λ () (db-reset))
-                #:after (λ () (db-reset))
-                (test-case "testing new-post and all-post-ids"
-                  (check-not-exn
-                   (λ ()
-                     (define p1 (new-post "from test" "body test"))
-                     (define p2 (new-post "from test" "body test"))
-                     (define p3 (new-post "from test" "body test"))
-                     (define all-posts (list (post-id p3) (post-id p2) (post-id p1)))
-                     (when (not (equal? (all-post-ids) all-posts))
-                       (raise "error: not matching"))))))
+                #:before db-reset
+                #:after db-reset
+                (test-case "new-post and id->post"
+                  (define a (new-post "from" "body"))
+                  (define b (id->post (post-id a)))
+                  (check-equal? a b "new-post and id->post")))
+    (test-suite "more basic tests"
+                #:before db-reset
+                #:after db-reset
+                (test-case "new-post and all-post-ids"
+                  (define a (sort (for/list ([_ (in-range 10)])
+                                    (post-id (new-post "from" "body")))
+                                  string<?))
+                  (define b (sort (all-post-ids) string<?))
+                  (check-equal? a b "all-posts-ids")))
     (test-suite "threads"
-                #:before (λ () (db-reset))
-                #:after (λ () (db-reset))
-                (test-case "testing post-thread-ids"
-                  (check-not-exn
-                   (λ ()
-                     (define p1 (new-post "from test" "body test"))
-                     (define p2 (new-post "from test" "body test" (post-id p1)))
-                     (define p3 (new-post "from test" "body test" (post-id p2)))
-                     (define p4 (new-post "from test" "body test" (post-id p3)))
-                     (define p5 (new-post "from test" "body test" (post-id p2)))
-                     (define all-posts (list (post-id p1)
-                                             (post-id p2)
-                                             (post-id p3)
-                                             (post-id p4)
-                                             (post-id p5)))
-                     (when (not (equal?
-                                 (sort (post-thread-ids (post-id p1)) string<?)
-                                 (sort all-posts string<?)))
-                       (raise "error: not matching"))))))
-    (test-suite "testing db cleaning"
-                #:before (λ () (db-reset))
-                #:after (λ () (db-reset))
-                (test-case "generating posts to force cleanup"
-                  (check-not-exn (λ () (generate-many-posts)))
-                  (check-true (<= (length (all-post-ids))
-                                  *db-max-size*))))
-    ) 'verbose))
+                #:before db-reset
+                #:after  db-reset
+                (test-case "post-thread-ids"
+                  (define p1 (new-post "from" "body"))
+                  (define p2 (new-post "from" "body" (post-id p1)))
+                  (define p3 (new-post "from" "body" (post-id p2)))
+                  (define p4 (new-post "from" "body" (post-id p3)))
+                  (define p5 (new-post "from" "body" (post-id p4)))
+                  (define a (sort (for/list ([p (in-list (list p1 p2 p3 p4 p5))])
+                                    (post-id p))
+                                  string<?))
+                  (define b (sort (post-thread-ids (post-id p1)) string<?))
+                  (check-equal? a b "post-thread-ids"))))))
