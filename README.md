@@ -4,13 +4,14 @@ Simple in-memory message board webapp written in racket.
 Messages are stored and served from simple fixed size in-memory "datastore" that
 uses fifo method for cleaning old messages out of the way. 
 
-Messages are never persisted anywhere! After messages are posted they will stay in memory and
-in the message board until new incoming messages pushes them away or when the server terminates.
+Messages are never persisted anywhere! 
+After messages are posted they will stay in memory and in the message board until 
+new incoming messages pushes them away or when the server terminates.
 
 All posts are posted anonymously with randomly generated userid that is valid until user ends
 the session or decides to abandon the userid.
 
-Uses only racket (v7.0) standard library!
+No external dependencies used, only racket standard library!
 
 ## build
 ```
