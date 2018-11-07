@@ -1,6 +1,9 @@
-#lang racket
+#lang racket/base
 
-(require file/md5)
+(require racket/list
+         racket/function
+         racket/bool
+         file/md5)
 
 (provide (struct-out post)
          uid
@@ -123,7 +126,7 @@
                   (define p2 (new-post "from" "body" (post-id p1)))
                   (define p3 (new-post "from" "body" (post-id p2)))
                   (define p4 (new-post "from" "body" (post-id p3)))
-                  (define p5 (new-post "from" "body" (post-id p4)))
+                  (define p5 (new-post "from" "body" (post-id p2)))
                   (define a (sort (for/list ([p (in-list (list p1 p2 p3 p4 p5))])
                                     (post-id p))
                                   string<?))

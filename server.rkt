@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 
 (require web-server/dispatch
          web-server/http
@@ -27,10 +27,10 @@
 
 ;; return form binding value from post form or #f if not found
 (define (binding-value req key)
-  (with-handlers ([exn:fail? (λ (e) #f)]) 
+  (with-handlers ([exn:fail? (λ (e) #f)])
     (define bindings (request-bindings/raw req))
     (define value (binding:form-value (bindings-assq key bindings)))
-    (if (false? value) #f (bytes->string/utf-8 value))))
+    (if value (bytes->string/utf-8 value) #f)))
 
 ;; get userid from cookie. if not found return "anonymous"
 (define (user-from-cookie req)
@@ -43,12 +43,11 @@
   (define parent-id (binding-value req #"ReplyTo"))
   (unless (or (equal? msg #f)
               (equal? msg ""))
-    (if (false? parent-id)
-        (p:new-post (user-from-cookie req)
-                    (xexpr->string msg))
-        (p:new-post (user-from-cookie req)
-                    (xexpr->string msg)
-                    (xexpr->string parent-id))))
+    (p:new-post (user-from-cookie req)
+                (xexpr->string msg)
+                (if parent-id
+                    (xexpr->string parent-id)
+                    parent-id)))
   (main req))
 
 ;; logout and invalidate id-cookie
@@ -69,9 +68,15 @@
    [("reply") #:method "post" new]))
 
 ;; run server
-(serve/servlet
- dispatch
- #:servlet-regexp #rx""
- #:servlet-path "/posts"
- #:port 8000
- #:extra-files-paths (list (build-path (current-directory) "static")))
+(serve/servlet dispatch
+               #:servlet-regexp #rx""
+               #:servlet-path (dispatch-url main)
+               #:port 8000
+               #:extra-files-paths (list (build-path (current-directory) "static")))
+
+(module+ test
+  (require rackunit)
+  (test-suite
+   "basic"
+   )
+  )
