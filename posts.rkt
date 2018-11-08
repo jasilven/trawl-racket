@@ -1,134 +1,154 @@
 #lang racket/base
 
-(require racket/list
-         racket/function
+(require file/md5
          racket/bool
-         file/md5)
+         racket/function
+         racket/list)
 
 (provide (struct-out post)
          uid
-         *post-max-len*
-         id->post
-         new-post
-         all-post-ids)
+         make-posts
+         posts-values
+         posts-ref
+         posts-add)
 
 (struct post (id posted from body comments) #:mutable #:transparent)
-(struct db (ids posts semaphore) #:mutable #:transparent)
+(struct pdb (max-size max-post-len ids posts semaphore) #:mutable #:transparent)
 
-;; create new db
-(define (db-new) (db '() (make-hash) (make-semaphore 1)))
-;; reset/clear postsdb
-(define (db-reset [first-time? #f])
-  (if first-time? (db-new) (set! *db* (db-new))))
-;; max number of posts/comments
-(define *db-max-size* 500)
-;; max length of post/comment
-(define *post-max-len* 1000)
-;; in-memory database for posts
-(define *db* (db-reset #t))
+;; make new posts store
+(define (make-posts [size 500] [max-post-len 1000])
+  (pdb size max-post-len '() (make-hash) (make-semaphore 1)))
 
-;; list of all top-level post ids
-(define (all-post-ids)
-  (db-ids *db*))
+;; returns a list of all posts from ps
+(define (posts-values ps)
+  (call-with-semaphore
+   (pdb-semaphore ps)
+   (thunk
+    (for*/list ([id (in-list (pdb-ids ps))])
+      (let loop ([pid id])
+        (define p (hash-ref (pdb-posts ps) pid))
+        (define comments (post-comments p))
+        (cond
+          [(empty? comments) (list p)]
+          [else (append (list p) (map loop comments))]))))))
+
+;; find post for given id or #f if not found
+(define (posts-ref ps id)
+  (call-with-semaphore
+   (pdb-semaphore ps)
+   (thunk (hash-ref (pdb-posts ps) id #f))))
 
 ;; list of all post ids for thread
-(define (post-thread-ids id [result '()])
-  (define ids (if (list? id) id (list id)))
-  (cond
-    [(empty? ids) result]
-    [else
-     (define current-id (first ids))
-     (define comments (post-comments (id->post current-id)))
-     (post-thread-ids (append (rest ids) comments)
-                      (append result (list current-id)))]))
+;; not thread safe!
+(define (-posts-thread-ids ps id)
+  (let loop ([ids (if (list? id) id (list id))]
+             [result '()])
+    (cond
+      [(empty? ids) result]
+      [else
+       (define current-id (first ids))
+       (define comments (post-comments (hash-ref (pdb-posts ps) current-id)))
+       (loop (append (rest ids) comments)
+             (append result (list current-id)))])))
 
-;; post for given post-id or #f if not found
-(define (id->post id)
-  (hash-ref (db-posts *db*) id #f))
-
-;; generic uid of length len
-(define (uid len)
-  (define a (number->string (random 100000000)))
-  (define b (number->string (current-milliseconds)))
-  (substring (bytes->string/utf-8
-              (md5 (string-append a b)))
-             0 len))
-
-;; unique id for new post
-(define (uniq-post-uid f v)
-  (define id (f v))
-  (if (hash-has-key? (db-posts *db*) id)
-      (uniq-post-uid f v)
-      id))
-
-;; create and return post and remove oldest if dull db
-(define (new-post from body [parent-id #f])
+;; create and return post, remove oldest post
+(define (posts-add ps from body [parent-id #f])
   (define abody (substring body
-                           0 (min (string-length body) *post-max-len*)))
-  (define id (uniq-post-uid uid 8))
+                           0 (min (string-length body)
+                                  (pdb-max-post-len ps))))
+  (define id (posts-new-uid ps uid 8))
   (define apost (post id (current-seconds) from abody '()))
   (define (add-comment a)
     (struct-copy post a [comments (append (post-comments a) (list id))]))
   (call-with-semaphore
-   (db-semaphore *db*)
+   (pdb-semaphore ps)
    (thunk
-    (hash-set! (db-posts *db*) id apost)
+    (hash-set! (pdb-posts ps) id apost)
     (if (false? parent-id) ;top level post
-        (set-db-ids! *db* (append (list id) (db-ids *db*)))
-        (hash-update! (db-posts *db*) parent-id add-comment))
-    (when (> (hash-count (db-posts *db*))
-             *db-max-size*)
-      (set-db-ids! *db* (drop-right (db-ids *db*) 1))
-      (for ([id (in-list (post-thread-ids (last (db-ids *db*))))])
-        (hash-remove! (db-posts *db*) id)))))
+        (set-pdb-ids! ps (append (list id) (pdb-ids ps)))
+        (hash-update! (pdb-posts ps) parent-id add-comment))
+    (when (> (hash-count (pdb-posts ps))
+             (pdb-max-size ps))
+      (for ([id (in-list (-posts-thread-ids ps (last (pdb-ids ps))))])
+        (hash-remove! (pdb-posts ps) id))
+      (set-pdb-ids! ps (drop-right (pdb-ids ps) 1)))))
   apost)
+
+;; generic uid of length len
+(define (uid len [c 0])
+  (define a (number->string (random 100000000)))
+  (define b (number->string (current-milliseconds)))
+  (substring (bytes->string/utf-8
+              (md5 (string-append a b (number->string c))))
+             0 len))
+
+;; unique id for new post
+(define (posts-new-uid ps fn len)
+  (call-with-semaphore
+   (pdb-semaphore ps)
+   (thunk
+    (let loop ([count 1])
+      (when (> count 10) (error "unable to generate unique post id"))
+      (define id (fn len count))
+      (if (hash-has-key? (pdb-posts ps) id)
+          (loop (add1 count))
+          id)))))
+
+
+
+(define (jatest)
+  (define pp (make-posts))
+  (define p1 (posts-add pp "eka" "eka"))
+  (define p2 (posts-add pp "toka" "toka"))
+  (define p1ali (posts-add pp "kolmas" "kolmas" (post-id p1)))
+  (define p4 (posts-add pp "nel" "nel"))
+  (displayln (-posts-thread-ids pp (post-id p1)))
+  (posts-values pp))
+
 
 ;; tests
 (module+ test
-  (require rackunit
-           rackunit/text-ui)
+  (require rackunit)
+  (test-case "add many"
+    (check-not-exn
+     (thunk
+      (define ps (make-posts))
+      (for ([i (in-range (* 10 (pdb-max-size ps)))])
+        (define p (posts-add ps (format "from-~a" (number->string i))
+                             (format "body-~a" (number->string i))))
+        (post-id (posts-ref ps (post-id p)))))))
 
-  (run-tests
-   (test-suite
-    "all tests"
-    (test-suite "stress test"
-                #:before db-reset
-                #:after db-reset
-                (check-not-exn
-                 (thunk
-                  (for ([i (in-range (* 10 *db-max-size*))])
-                    (define a (new-post (format "from-~a" (number->string i))
-                                        (format "body-~a" (number->string i))))
-                    (post-id (id->post (post-id a))))))
-                (check-true (<= (length (all-post-ids))
-                                *db-max-size*)))
-    (test-suite "basic tests"
-                #:before db-reset
-                #:after db-reset
-                (test-case "new-post and id->post"
-                  (define a (new-post "from" "body"))
-                  (define b (id->post (post-id a)))
-                  (check-equal? a b "new-post and id->post")))
-    (test-suite "more basic tests"
-                #:before db-reset
-                #:after db-reset
-                (test-case "new-post and all-post-ids"
-                  (define a (sort (for/list ([_ (in-range 10)])
-                                    (post-id (new-post "from" "body")))
-                                  string<?))
-                  (define b (sort (all-post-ids) string<?))
-                  (check-equal? a b "all-posts-ids")))
-    (test-suite "threads"
-                #:before db-reset
-                #:after  db-reset
-                (test-case "post-thread-ids"
-                  (define p1 (new-post "from" "body"))
-                  (define p2 (new-post "from" "body" (post-id p1)))
-                  (define p3 (new-post "from" "body" (post-id p2)))
-                  (define p4 (new-post "from" "body" (post-id p3)))
-                  (define p5 (new-post "from" "body" (post-id p2)))
-                  (define a (sort (for/list ([p (in-list (list p1 p2 p3 p4 p5))])
-                                    (post-id p))
-                                  string<?))
-                  (define b (sort (post-thread-ids (post-id p1)) string<?))
-                  (check-equal? a b "post-thread-ids"))))))
+  (test-case "add many 2 "
+    (define ps (make-posts))
+    (for ([i (in-range (* 10 (pdb-max-size ps)))])
+      (posts-add ps (format "from-~a" (number->string i))
+                 (format "body-~a" (number->string i))))
+    (check-equal? (pdb-max-size ps) (length (pdb-ids ps))))
+
+  (test-case "posts-add and posts-ref"
+    (let ([ps (make-posts)])
+      (define a (posts-add ps "from" "body"))
+      (define b (posts-ref ps (post-id a)))
+      (check-equal? a b)))
+
+  (test-case "add post"
+    (let ([ps (make-posts)])
+      (define p1 (sort (for/list ([_ (in-range 10)])
+                         (post-id (posts-add ps "from" "body")))
+                       string<?))
+      (define p2 (sort (pdb-ids ps) string<?))
+      (check-equal? p1 p2)))
+
+  (test-case "post-thread-ids"
+    (let ([ps (make-posts)])
+      (define p1 (posts-add ps "from" "body"))
+      (define p2 (posts-add ps "from" "body" (post-id p1)))
+      (define p3 (posts-add ps "from" "body" (post-id p2)))
+      (define p4 (posts-add ps "from" "body" (post-id p3)))
+      (define p5 (posts-add ps "from" "body" (post-id p2)))
+      (define a (sort (for/list ([ps (in-list (list p1 p2 p3 p4 p5))])
+                        (post-id ps))
+                      string<?))
+      (define b (sort (-posts-thread-ids ps (post-id p1)) string<?))
+      (check-equal? a b))))
+

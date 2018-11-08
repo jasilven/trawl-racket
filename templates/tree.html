@@ -1,8 +1,8 @@
 <li class="list-group-item py-1 nb">
-    <a class="link" href="/posts/@(p:post-id p)">
-        <b>@(render-subject p)</b>
-        <span class="text-dark"><b>&nbsp;&#64;@(p:post-from p)</b></span>
-        <span class="text-muted">&nbsp;@(render-posted p)</span>
+    <a class="link" href="/posts/@(post-id (first p))">
+        <b>@(substring (post-body (first p)) 0 (min 50 (string-length (post-body (first p)))))</b>
+        <span class="text-dark"><b>&nbsp;&#64;@(post-from (first p))</b></span>
+        <span class="text-muted">&nbsp;@(duration (post-posted (first p)))</span>
     </a>
-    @in[c (p:post-comments p)]{<ul class="px-2">@(render-tree c)</ul>}
+    @in[comment (rest p)]{<ul class="px-2">@(render-comment comment)</ul>}
 </li>

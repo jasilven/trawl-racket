@@ -1,20 +1,20 @@
 <div class="shadow p-3 mb-4 bg-white rounded">
     <span class="text-dark">
-        &#64;<b>@(p:post-from p)</b>&nbsp;@(render-posted p)
+        &#64;<b>@(post-from selected)</b>&nbsp;@(duration (post-posted selected))
     </span>
 </pr>
-<h4>@(render-subject p)</h4>
+<h4>@(substring (post-body selected) 0 (min 50 (string-length (post-body selected))))</h4>
 <pre>
-@(p:post-body p)
+@(post-body selected)
 </pre>
 </div>
 <form action="/reply" method="post" autocomplete="off" validate="" id="reply">
     <div class="form-group mt-3">
         <label for="Body" class="text-muted"> &#9998; Comment</Label>
-        <textarea class="form-control" name="Body" placeholder="" rows="6" form="reply" maxlength="@|p:*post-max-len*|"></textarea>
+        <textarea class="form-control" name="Body" placeholder="" rows="6" form="reply" maxlength="@|*post-max-len*|"></textarea>
     </div>
     <div class="form-group mt-3">
-        <input type="hidden" name="ReplyTo" value="@(p:post-id p)">
+        <input type="hidden" name="ReplyTo" value="@(post-id selected)">
     </div>
     <button type="submit" class="btn btn-sm btn-outline-primary">Send</button>
 </form>
