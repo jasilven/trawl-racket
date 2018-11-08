@@ -38,8 +38,7 @@
    (pdb-semaphore ps)
    (thunk (hash-ref (pdb-posts ps) id #f))))
 
-;; list of all post ids for thread
-;; not thread safe!
+;; list of all post ids for thread. Not thread safe!
 (define (-posts-thread-ids ps id)
   (let loop ([ids (if (list? id) id (list id))]
              [result '()])
@@ -93,18 +92,6 @@
       (if (hash-has-key? (pdb-posts ps) id)
           (loop (add1 count))
           id)))))
-
-
-
-(define (jatest)
-  (define pp (make-posts))
-  (define p1 (posts-add pp "eka" "eka"))
-  (define p2 (posts-add pp "toka" "toka"))
-  (define p1ali (posts-add pp "kolmas" "kolmas" (post-id p1)))
-  (define p4 (posts-add pp "nel" "nel"))
-  (displayln (-posts-thread-ids pp (post-id p1)))
-  (posts-values pp))
-
 
 ;; tests
 (module+ test
